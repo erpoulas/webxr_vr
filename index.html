@@ -26,17 +26,17 @@
 <body>
   <div id="info">WebXR Dropping Ball – press “Enter VR”</div>
 
-  <!-- Three.js + WebXR helpers via CDN -->
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.166.0/build/three.module.js';
     import { VRButton } from 'https://unpkg.com/three@0.166.0/examples/jsm/webxr/VRButton.js';
 
     let scene, camera, renderer;
+    let world;          // group that holds floor + ball
     let ball;
     const ballRadius = 0.2;
     const floorY = 0;          // height of the floor plane
     const gravity = -9.8;      // m/s^2 (fake units)
-    let velocityY = 0;         // current vertical velocity of the ball
+    let velocityY = 0;         // vertical velocity of the ball
     let lastTime = 0;
 
     init();
@@ -47,7 +47,14 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x202030);
 
-      // Camera
+      // World group: this will be placed in front of the user
+      world = new THREE.Group();
+      scene.add(world);
+
+      // Move the whole world 3m in front of the user
+      world.position.set(0, 0, -3);
+
+      // Camera (used in non-VR mode; XR takes over in VR)
       camera = new THREE.PerspectiveCamera(
         70,
         window.innerWidth / window.innerHeight,
@@ -55,6 +62,7 @@
         100
       );
       camera.position.set(0, 1.6, 3);
+      camera.lookAt(0, 1.6, -3);
 
       // Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -74,7 +82,7 @@
       dirLight.position.set(3, 10, 5);
       scene.add(dirLight);
 
-      // Floor
+      // Floor (inside world)
       const floorGeo = new THREE.PlaneGeometry(10, 10);
       const floorMat = new THREE.MeshStandardMaterial({
         color: 0x222233,
@@ -83,11 +91,11 @@
       });
       const floor = new THREE.Mesh(floorGeo, floorMat);
       floor.rotation.x = -Math.PI / 2;
-      floor.position.y = floorY;
+      floor.position.set(0, floorY, 0);
       floor.receiveShadow = true;
-      scene.add(floor);
+      world.add(floor);
 
-      // Ball
+      // Ball (inside world)
       const ballGeo = new THREE.SphereGeometry(ballRadius, 32, 32);
       const ballMat = new THREE.MeshStandardMaterial({
         color: 0xff5555,
@@ -97,9 +105,9 @@
       ball = new THREE.Mesh(ballGeo, ballMat);
       ball.castShadow = true;
 
-      // Start height
+      // Start height (2m above floor, centered)
       ball.position.set(0, 2.0, 0);
-      scene.add(ball);
+      world.add(ball);
 
       // Resize handling
       window.addEventListener('resize', onWindowResize);
@@ -125,7 +133,7 @@
       velocityY += gravity * dt;
       ball.position.y += velocityY * dt;
 
-      // Collision with the floor (stop on impact)
+      // Collision with floor in world space
       const minY = floorY + ballRadius;
       if (ball.position.y < minY) {
         ball.position.y = minY;
